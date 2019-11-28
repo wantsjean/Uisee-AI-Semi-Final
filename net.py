@@ -2,46 +2,54 @@ import torch
 import torch.nn as nn
 
 
-class CarlaNet(nn.Module):
-    def __init__(self, dropout_vec=None):
-        super(CarlaNet, self).__init__()
+class IFENet(nn.Module):
+    def __init__(self):
+        super(IFENet, self).__init__()
         self.conv_block = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=5, stride=2),
+            nn.Conv2d(3, 32, kernel_size=7, stride=2,padding=3),
             nn.BatchNorm2d(32),
             # nn.Dropout(self.dropout_vec[0]),
             nn.ReLU(),
-            nn.Conv2d(32, 32, kernel_size=3, stride=1),
-            nn.BatchNorm2d(32),
+            nn.Conv2d(32, 48, kernel_size=5, stride=2,padding=2),
+            nn.BatchNorm2d(48),
             # nn.Dropout(self.dropout_vec[1]),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2),
+            nn.Conv2d(48, 64, kernel_size=3, stride=2,padding=1),
             nn.BatchNorm2d(64),
             # nn.Dropout(self.dropout_vec[2]),
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1,padding=1),
             nn.BatchNorm2d(64),
             # nn.Dropout(self.dropout_vec[3]),
             nn.ReLU(),
-            nn.Conv2d(64, 128, kernel_size=3, stride=2),
+            nn.Conv2d(64, 96, kernel_size=3, stride=2,padding=1),
+            nn.BatchNorm2d(96),
+            # nn.Dropout(self.dropout_vec[3]),
+            nn.ReLU(),
+            nn.Conv2d(96, 96, kernel_size=3, stride=1,padding=1),
+            nn.BatchNorm2d(96),
+            # nn.Dropout(self.dropout_vec[3]),
+            nn.ReLU(),
+            nn.Conv2d(96, 128, kernel_size=3, stride=2,padding=1),
             nn.BatchNorm2d(128),
             # nn.Dropout(self.dropout_vec[4]),
             nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1,padding=0),
             nn.BatchNorm2d(128),
             # nn.Dropout(self.dropout_vec[5]),
             nn.ReLU(),
-            nn.Conv2d(128, 256, kernel_size=3, stride=1),
+            nn.Conv2d(128, 256, kernel_size=3, stride=1,padding=0),
             nn.BatchNorm2d(256),
             # nn.Dropout(self.dropout_vec[6]),
             nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1),
+            nn.Conv2d(256, 256, kernel_size=3, stride=1,padding=0),
             nn.BatchNorm2d(256),
             # nn.Dropout(self.dropout_vec[7]),
             nn.ReLU(),
         )
 
         self.img_fc = nn.Sequential(
-                nn.Linear(8192, 512),
+                nn.Linear(256*4*9, 512),
                 nn.Dropout(0.3),
                 nn.ReLU(),
                 nn.Linear(512, 512),
@@ -58,30 +66,28 @@ class CarlaNet(nn.Module):
                 nn.ReLU(),
             )
 
+        
         self.emb_fc = nn.Sequential(
                 nn.Linear(512+128, 512),
                 nn.Dropout(0.5),
                 nn.ReLU(),
             )
-
-        self.branches = nn.ModuleList([
-            nn.Sequential(
+        
+        self.pred_speed_branch = nn.Sequential(
                 nn.Linear(512, 256),
                 nn.Dropout(0.5),
                 nn.ReLU(),
                 nn.Linear(256, 256),
-                # nn.Dropout(self.dropout_vec[i*2+14]),
+                nn.Dropout(0.3),
                 nn.ReLU(),
-                nn.Linear(256, 3),
-            ) for i in range(4)
-        ])
-
-        self.speed_branch = nn.Sequential(
+                nn.Linear(256, 1),
+            )
+        
+        self.pred_angle_branch = nn.Sequential(
                 nn.Linear(512, 256),
                 nn.Dropout(0.5),
                 nn.ReLU(),
-                nn.Linear(256, 256),
-                # nn.Dropout(self.dropout_vec[1]),
+                nn.Dropout(0.3),
                 nn.ReLU(),
                 nn.Linear(256, 1),
             )
@@ -94,24 +100,23 @@ class CarlaNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-    def forward(self, img, speed):
-        img = self.conv_block(img)
-        img = img.view(-1, 8192)
-        img = self.img_fc(img)
-
+    def forward(self, image, speed):
+        image = (image.permute(0,3,1,2).float()-128)/128
+        speed = speed.unsqueeze(1)
+        image = self.conv_block(image)
+        b,c,h,w = image.size()
+        image = image.view(b,c*h*w)
+        image = self.img_fc(image)
         speed = self.speed_fc(speed)
-        emb = torch.cat([img, speed], dim=1)
-        emb = self.emb_fc(emb)
+        embed = self.emb_fc(torch.cat([image,speed],1))
+        pred_speed = self.pred_speed_branch(embed)
+        pred_angle = self.pred_angle_branch(embed)
+        return pred_speed.squeeze(), pred_angle.squeeze()
 
-        output = torch.cat([out(emb) for out in self.branches],
-                           dim=1)
-        pred_speed = self.speed_branch(img)
+# if __name__ == "__main__":
+#     model = IFENet()
+#     img = torch.randn((4,3,320,480))
+#     speed = torch.randn((4,1))
+#     pred_speed,pred_angle = model(img,speed)
 
-        return output, pred_speed
-
-model = CarlaNet()
-
-img = torch.randn((4,3,320,480))
-speed = torch.randn(4,1)
-
-output,pred_speed = model(img,speed)
+#     print(pred_angle.size())

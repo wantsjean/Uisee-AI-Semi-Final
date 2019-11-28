@@ -1,3 +1,10 @@
 **/*.png
 **/*.txt
-**/*.pth
+**/*.pth.tar
+
+**/*.rar
+
+logs
+runs
+
+**/*.pyc

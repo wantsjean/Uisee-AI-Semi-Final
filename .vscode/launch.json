@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "pythonPath": "F:/apps/anaconda/envs/py36/python.exe",
+            // "pythonPath": "F:/apps/anaconda/envs/py36/python.exe",
         }
     ]
 }
