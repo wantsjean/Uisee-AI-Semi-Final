@@ -31,7 +31,7 @@ count = 0
 time1 = 0
 time2 = 0
 root_dir = './dataset/'
-img_dir = root_dir + 'img_r/'
+img_dir = root_dir + 'imgs/'
 mkdir(img_dir)
 
 while(1):
@@ -47,9 +47,9 @@ while(1):
     img = np.array(image.image[0:480*320*3])
     img = img.reshape((320, 480, 3))
     img_PIL = Image.fromarray(np.uint8(img))
-    img_PIL.save(img_dir+str(action.time_stamp)+'_'+('%010d'%count)+'.png', 'png')
+    img_PIL.save(img_dir+str(action.time_stamp)+".png", 'png')
     # save pose & action
-    with open(root_dir + 'action_pose_r.txt', 'a+') as f:
+    with open(root_dir + 'labels.txt', 'a+') as f:
         f.write('%d %d %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f\n' % (count, action.time_stamp, action.pose.position.x_val, \
                  action.pose.position.y_val, action.pose.position.z_val, action.pose.rotation.x_val, action.pose.rotation.y_val, \
                  action.pose.rotation.z_val, action.steering_angle, action.forward_speed))
